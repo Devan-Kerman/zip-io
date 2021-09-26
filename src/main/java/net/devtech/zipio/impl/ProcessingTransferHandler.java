@@ -69,7 +69,7 @@ public class ProcessingTransferHandler implements TransferHandler {
 					} else {
 						throw new IllegalStateException(this.post + " return POST, yet no post handlers exist!");
 					}
-				} else  if(impl instanceof RealZipEntry i && i.lazy.supplier != null) {
+				} else if(impl instanceof RealZipEntry i && i.lazy.supplier != null) {
 					BufferPool.INSTANCE.ret(i.lazy.value, 0);
 				}
 			}
