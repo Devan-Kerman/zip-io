@@ -10,6 +10,8 @@ public interface VirtualZipEntry {
 
 	void copyToOutput();
 
+	void writeToOutput(ByteBuffer buffer);
+
 	void copyTo(String fileName);
 
 	void write(String fileName, ByteBuffer buffer);

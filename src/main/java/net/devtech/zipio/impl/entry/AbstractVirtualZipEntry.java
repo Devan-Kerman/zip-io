@@ -29,4 +29,13 @@ public abstract class AbstractVirtualZipEntry implements VirtualZipEntry {
 			throw U.rethrow(e);
 		}
 	}
+
+	@Override
+	public void writeToOutput(ByteBuffer buffer) {
+		try {
+			this.handler.write(buffer, this.destination);
+		} catch(IOException e) {
+			throw U.rethrow(e);
+		}
+	}
 }

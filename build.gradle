@@ -4,11 +4,43 @@ plugins {
 }
 
 group 'net.devtech'
-version '1.0.0'
+version '1.2.2'
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            // add all the jars that should be included when publishing to maven
+            artifact(jar) {
+                builtBy build
+            }
+            artifact(sourcesJar) {
+                builtBy sourcesJar
+            }
+        }
+    }
+    // select the repositories you want to publish to
+    repositories {
+        maven {
+            def mavenUrl = project.hasProperty('maven_url') ? project.property('maven_url') : ""
+            url mavenUrl
+            if (mavenUrl.startsWith("http")) {
+                credentials {
+                    username project.hasProperty('maven_username') ? project.property('maven_username') : ""
+                    password project.hasProperty('maven_password') ? project.property('maven_password') : ""
+                }
+            }
+        }
+    }
 }

@@ -74,5 +74,6 @@ public class ProcessingTransferHandler implements TransferHandler {
 				}
 			}
 		}
+		this.handler.close();
 	}
 }

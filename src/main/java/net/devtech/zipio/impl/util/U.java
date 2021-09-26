@@ -45,6 +45,7 @@ public class U {
 
 	public static FileSystem createZip(Path path) {
 		try {
+			Files.deleteIfExists(path);
 			return FileSystems.newFileSystem(path, NIO_CREATE);
 		} catch(IOException e) {
 			throw rethrow(e);
