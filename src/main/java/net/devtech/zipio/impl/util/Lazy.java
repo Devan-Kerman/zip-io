@@ -3,6 +3,12 @@ package net.devtech.zipio.impl.util;
 import java.util.function.Supplier;
 
 public class Lazy<T> implements Supplier<T> {
+	public static final Lazy<?> EMPTY = new Lazy<>(null);
+
+	public static <T> Lazy<T> empty() {
+		return (Lazy<T>) EMPTY;
+	}
+
 	public Supplier<T> supplier;
 	public T value;
 

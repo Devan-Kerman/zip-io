@@ -6,9 +6,9 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Vector;
 
-import net.devtech.zipio.ProcessResult;
+import net.devtech.zipio.processors.entry.ProcessResult;
 import net.devtech.zipio.VirtualZipEntry;
-import net.devtech.zipio.ZipEntryProcessor;
+import net.devtech.zipio.processors.entry.ZipEntryProcessor;
 import net.devtech.zipio.impl.entry.InMemoryZipEntryImpl;
 import net.devtech.zipio.impl.entry.RealZipEntry;
 import net.devtech.zipio.impl.util.BufferPool;

@@ -8,11 +8,21 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 public class U {
 	private static final Map<String, ?> NIO_CREATE = Map.of("create", "true");
+
+	public static void close(Map<Path, FileSystem> systems) throws IOException {
+		Iterator<FileSystem> iterator = systems.values().iterator();
+		while(iterator.hasNext()) {
+			FileSystem value = iterator.next();
+			iterator.remove();
+			value.close();
+		}
+	}
 
 	public static ByteBuffer read(Path p) {
 		ByteBuffer curr = BufferPool.INSTANCE.get();
@@ -43,7 +53,21 @@ public class U {
 		return handlers;
 	}
 
+	public static FileSystem openZip(Path path) {
+		if(path == null) {
+			return null;
+		}
+		try {
+			return FileSystems.newFileSystem(path);
+		} catch(IOException e) {
+			throw rethrow(e);
+		}
+	}
+
 	public static FileSystem createZip(Path path) {
+		if(path == null) {
+			return null;
+		}
 		try {
 			Files.deleteIfExists(path);
 			return FileSystems.newFileSystem(path, NIO_CREATE);

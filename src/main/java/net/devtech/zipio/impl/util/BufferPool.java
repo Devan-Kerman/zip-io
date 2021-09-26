@@ -22,6 +22,7 @@ public final class BufferPool {
 	}
 
 	public int ret(ByteBuffer buf, int start) {
+		buf.position(0);
 		int i;
 		for(i = 0; i < SIZE && !this.buffers.compareAndSet((start + i) & MASK, null, buf); i++) {
 		}
