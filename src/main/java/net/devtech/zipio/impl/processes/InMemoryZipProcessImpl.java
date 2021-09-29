@@ -41,10 +41,10 @@ public class InMemoryZipProcessImpl implements MemoryZipProcess, InternalZipProc
 			TransferHandler handler = provider.apply(pair.path);
 			TransferHandlerNode node = pair.handler;
 			for(TransferPair<Path> copy : node.copyPair) {
-				handler.copyFrom(copy.data, copy.destination);
+				handler.copy(copy.destination, copy.data);
 			}
 			for(TransferPair<ByteBuffer> write : node.writePair) {
-				handler.write(write.data, write.destination);
+				handler.write(write.destination, write.data);
 			}
 		}
 	}
@@ -71,16 +71,17 @@ public class InMemoryZipProcessImpl implements MemoryZipProcess, InternalZipProc
 		List<TransferPair<ByteBuffer>> writePair = List.of();
 
 		@Override
-		public void copyFrom(Path path, String destination) {
+		public void copy(String destination, Path path) {
 			this.copyPair = U.add(this.copyPair, new TransferPair<>(path, destination));
 		}
 
 		@Override
-		public void write(ByteBuffer buffer, String destination) {
+		public void write(String destination, ByteBuffer buffer) {
 			// buffers are pooled and temporary, so we must copy them
-			int pos = buffer.position();
+			int pos = buffer.limit();
 			ByteBuffer clone = ByteBuffer.allocate(pos);
 			clone.put(0, buffer, 0, pos);
+			clone.limit(pos);
 			this.writePair = U.add(this.writePair, new TransferPair<>(clone, destination));
 		}
 

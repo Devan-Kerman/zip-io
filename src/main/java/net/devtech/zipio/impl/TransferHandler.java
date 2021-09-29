@@ -7,10 +7,15 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public interface TransferHandler extends AutoCloseable {
-	void copyFrom(Path path, String destination) throws IOException;
+import net.devtech.zipio.ZipOutput;
+import net.devtech.zipio.impl.util.U;
 
-	void write(ByteBuffer buffer, String destination) throws IOException;
+public interface TransferHandler extends AutoCloseable, ZipOutput {
+	@Override
+	void copy(String destination, Path path);
+
+	@Override
+	void write(String destination, ByteBuffer buffer);
 
 	default TransferHandler andThen(TransferHandler b) {
 		return new AndThen(this, b);
@@ -18,16 +23,17 @@ public interface TransferHandler extends AutoCloseable {
 
 	record AndThen(TransferHandler a, TransferHandler b) implements TransferHandler {
 		@Override
-		public void copyFrom(Path path, String destination) throws IOException {
-			this.a.copyFrom(path, destination);
-			this.b.copyFrom(path, destination);
+		public void copy(String destination, Path path) {
+			this.a.copy(destination, path);
+			this.b.copy(destination, path);
 		}
 
 		@Override
-		public void write(ByteBuffer buffer, String destination) throws IOException {
-			this.a.write(buffer, destination);
-			this.b.write(buffer, destination);
+		public void write(String destination, ByteBuffer buffer) {
+			this.a.write(destination, buffer);
+			this.b.write(destination, buffer);
 		}
+
 
 		@Override
 		public void close() throws Exception {
@@ -44,19 +50,25 @@ public interface TransferHandler extends AutoCloseable {
 		}
 
 		@Override
-		public void copyFrom(Path path, String destination) throws IOException {
-			Files.copy(path, this.getOut(destination));
-		}
-
-		@Override
-		public void write(ByteBuffer buffer, String destination) throws IOException {
-			try(OutputStream stream = Files.newOutputStream(this.getOut(destination))) {
-				stream.write(buffer.array(), buffer.arrayOffset(), buffer.position());
+		public void copy(String destination, Path path) {
+			try {
+				Files.copy(path, this.getOut(destination));
+			} catch(IOException e) {
+				throw U.rethrow(e);
 			}
 		}
 
 		@Override
-		public void close() throws Exception {
+		public void write(String destination, ByteBuffer buffer) {
+			try(OutputStream stream = Files.newOutputStream(this.getOut(destination))) {
+				stream.write(buffer.array(), buffer.arrayOffset(), buffer.limit());
+			} catch(IOException e) {
+				throw U.rethrow(e);
+			}
+		}
+
+		@Override
+		public void close() {
 			// ignore
 		}
 

@@ -2,13 +2,13 @@ package net.devtech.zipio.processors.zip;
 
 public enum ZipBehavior {
 	/**
-	 * Skip the zip, replacing the intended output path with the input path
+	 * Replaces the intended output path with the input path (does not actually copy it)
 	 */
-	SKIP,
+	COPY,
 	/**
 	 * Removes the zip from the output
 	 */
-	NO_OUTPUT,
+	SKIP,
 	/**
 	 * Process the zip as normal
 	 */

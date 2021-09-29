@@ -2,13 +2,13 @@ package net.devtech.zipio.processors.entry;
 
 import net.devtech.zipio.VirtualZipEntry;
 import net.devtech.zipio.processes.ZipProcessBuilder;
-import net.devtech.zipio.stage.ZipOutput;
+import net.devtech.zipio.stage.ZipTransform;
 
 public enum ProcessResult {
 	/**
 	 * refers the current entry to post-processing, returning this will cause the next ZipEntryProcessor stage to be called with this entry
 	 * @see ZipProcessBuilder#setEntryProcessor(ZipEntryProcessor)
-	 * @see ZipOutput#setPostEntryProcessor(ZipEntryProcessor)
+	 * @see ZipTransform#setPostEntryProcessor(ZipEntryProcessor)
 	 * @see ZipProcessBuilder#setPostProcessor(ZipEntryProcessor)
 	 * @see ZipEntryProcessor#apply(VirtualZipEntry)
 	 */
@@ -19,5 +19,9 @@ public enum ProcessResult {
 	/**
 	 * States the entry was handled, and thus full processing of the entry does not need to be postponed
 	 */
-	HANDLED
+	HANDLED;
+
+	public static ProcessResult result(boolean shouldPost) {
+		return shouldPost ? POST : HANDLED;
+	}
 }

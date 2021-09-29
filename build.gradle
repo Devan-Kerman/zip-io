@@ -4,13 +4,15 @@ plugins {
 }
 
 group 'net.devtech'
-version '2.0.0'
+version '3.0.7'
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
+    testImplementation "com.google.jimfs:jimfs:1.2"
+    testImplementation 'org.apache.commons:commons-compress:1.21'
 }
 
 task sourcesJar(type: Jar, dependsOn: classes) {
@@ -32,6 +34,7 @@ publishing {
     }
     // select the repositories you want to publish to
     repositories {
+        mavenLocal()
         maven {
             def mavenUrl = project.hasProperty('maven_url') ? project.property('maven_url') : ""
             url mavenUrl

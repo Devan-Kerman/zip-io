@@ -5,8 +5,8 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import net.devtech.zipio.impl.util.Lazy;
 import net.devtech.zipio.impl.TransferHandler;
+import net.devtech.zipio.impl.util.Lazy;
 import net.devtech.zipio.impl.util.U;
 
 public class RealZipEntry extends AbstractVirtualZipEntry {
@@ -26,20 +26,12 @@ public class RealZipEntry extends AbstractVirtualZipEntry {
 
 	@Override
 	public void copyToOutput() {
-		try {
-			this.handler.copyFrom(this.inputFile, this.destination);
-		} catch(IOException e) {
-			throw U.rethrow(e);
-		}
+		this.handler.copy(this.destination, this.inputFile);
 	}
 
 	@Override
 	public void copyTo(String fileName) {
-		try {
-			this.handler.copyFrom(this.inputFile, fileName);
-		} catch(IOException e) {
-			throw U.rethrow(e);
-		}
+		this.handler.copy(fileName, this.inputFile);
 	}
 
 	@Override

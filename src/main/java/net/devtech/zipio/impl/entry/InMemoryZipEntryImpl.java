@@ -24,26 +24,18 @@ public class InMemoryZipEntryImpl extends AbstractVirtualZipEntry {
 
 	@Override
 	public void copyToOutput() {
-		try {
-			this.handler.write(this.contents, this.destination);
-		} catch(IOException e) {
-			throw U.rethrow(e);
-		}
+		this.handler.write(this.destination, this.contents);
 	}
 
 	@Override
 	public void copyTo(String fileName) {
-		try {
-			this.handler.write(this.contents, fileName);
-		} catch(IOException e) {
-			throw U.rethrow(e);
-		}
+		this.handler.write(fileName, this.contents);
 	}
 
 	@Override
 	public void copyTo(Path path) {
 		try(OutputStream out = Files.newOutputStream(path)) {
-			out.write(this.contents.array(), this.contents.arrayOffset(), this.contents.position());
+			out.write(this.contents.array(), this.contents.arrayOffset(), this.contents.limit());
 		} catch(IOException e) {
 			throw U.rethrow(e);
 		}

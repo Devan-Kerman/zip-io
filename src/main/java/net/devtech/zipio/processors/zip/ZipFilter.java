@@ -8,7 +8,7 @@ import java.util.function.UnaryOperator;
 import net.devtech.zipio.processes.ZipProcess;
 import net.devtech.zipio.processes.ZipProcessBuilder;
 
-public interface ZipProcessor {
+public interface ZipFilter {
 	/**
 	 * Customize behavior for a specific zip based on the input path
 	 *

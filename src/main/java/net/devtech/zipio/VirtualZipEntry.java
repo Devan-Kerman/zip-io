@@ -10,7 +10,7 @@ public interface VirtualZipEntry {
 	String path();
 
 	/**
-	 * @return The lazily evaluated contents of the zip entry
+	 * @return The lazily evaluated contents of the zip entry, do not modify this buffer!
 	 */
 	ByteBuffer read();
 
@@ -33,6 +33,11 @@ public interface VirtualZipEntry {
 	 * Writes the given data to the given path in the output zip
 	 */
 	void write(String fileName, ByteBuffer buffer);
+
+	/**
+	 * Copies the path to the path(fileName) in the output zip
+	 */
+	void copy(String fileName, Path input);
 
 	/**
 	 * Copy the current zip entry to the given path

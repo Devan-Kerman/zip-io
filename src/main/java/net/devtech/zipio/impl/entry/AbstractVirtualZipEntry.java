@@ -2,6 +2,7 @@ package net.devtech.zipio.impl.entry;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 
 import net.devtech.zipio.VirtualZipEntry;
 import net.devtech.zipio.impl.TransferHandler;
@@ -23,19 +24,16 @@ public abstract class AbstractVirtualZipEntry implements VirtualZipEntry {
 
 	@Override
 	public void write(String fileName, ByteBuffer buffer) {
-		try {
-			this.handler.write(buffer, fileName);
-		} catch(IOException e) {
-			throw U.rethrow(e);
-		}
+		this.handler.write(fileName, buffer);
 	}
 
 	@Override
 	public void writeToOutput(ByteBuffer buffer) {
-		try {
-			this.handler.write(buffer, this.destination);
-		} catch(IOException e) {
-			throw U.rethrow(e);
-		}
+		this.handler.write(this.destination, buffer);
+	}
+
+	@Override
+	public void copy(String fileName, Path input) {
+		this.handler.copy(fileName, input);
 	}
 }

@@ -2,6 +2,7 @@ package net.devtech.zipio.impl.util;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -24,23 +25,31 @@ public class U {
 		}
 	}
 
-	public static ByteBuffer read(Path p) {
-		ByteBuffer curr = BufferPool.INSTANCE.get();
-		try(SeekableByteChannel stream = Files.newByteChannel(p)) {
-			int poolRet = 0;
+	public static ByteBuffer read(ReadableByteChannel stream) {
+		ByteBuffer curr = ByteBuffer.allocate(4096);
+		try {
 			while(stream.read(curr) != -1) {
 				if(curr.remaining() == 0) { // if buffer is full
-					ByteBuffer old = curr;
-					curr = ByteBuffer.allocate(curr.capacity() * 2);
-					old.get(curr.array(), 0, old.position());
-					curr.position(old.position());
-					poolRet = BufferPool.INSTANCE.ret(old, poolRet);
+					int lim = curr.limit();
+					ByteBuffer clone = ByteBuffer.allocate(lim * 2);
+					clone.put(0, curr, 0, lim);
+					clone.position(curr.position());
+					curr = clone;
 				}
 			}
 		} catch(IOException e) {
 			throw rethrow(e);
 		}
+		curr.limit(curr.limit() - curr.remaining());
 		return curr;
+	}
+
+	public static ByteBuffer read(Path p) {
+		try(SeekableByteChannel stream = Files.newByteChannel(p)) {
+			return read(stream);
+		} catch(IOException e) {
+			throw rethrow(e);
+		}
 	}
 
 	public static <T> List<T> lazy(List<T> curr) {
@@ -83,5 +92,12 @@ public class U {
 	@SuppressWarnings("unchecked")
 	public static <T extends Throwable> RuntimeException rethrow(Throwable throwable) throws T {
 		throw (T) throwable;
+	}
+
+	public static void createDirs(Path path) throws IOException {
+		Path parent = path.getParent();
+		if(parent != null) {
+			Files.createDirectories(parent);
+		}
 	}
 }

@@ -7,7 +7,7 @@ import net.devtech.zipio.impl.processes.EmptyZipProcessImpl;
 import net.devtech.zipio.impl.processes.ZipProcessImpl;
 
 public interface ZipProcess {
-	static ZipProcess create() {
+	static ZipProcessBuilder builder() {
 		return new ZipProcessImpl();
 	}
 
