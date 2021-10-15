@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Vector;
 
+import net.devtech.zipio.impl.entry.CopyWriteZipEntryImpl;
 import net.devtech.zipio.processors.entry.ProcessResult;
 import net.devtech.zipio.VirtualZipEntry;
 import net.devtech.zipio.processors.entry.ZipEntryProcessor;
@@ -44,6 +45,12 @@ public class ProcessingTransferHandler implements TransferHandler {
 	public void write(String destination, ByteBuffer buffer) {
 		InMemoryZipEntryImpl impl = new InMemoryZipEntryImpl(this.handler, buffer, destination);
 		this.applyIndividualEntry(impl);
+	}
+
+	@Override
+	public void copyWrite(String destination, Path compressedData, ByteBuffer uncompressedData) {
+		CopyWriteZipEntryImpl copy = new CopyWriteZipEntryImpl(this.handler, destination, compressedData, uncompressedData);
+		this.applyIndividualEntry(copy);
 	}
 
 	private void applyIndividualEntry(VirtualZipEntry impl) {

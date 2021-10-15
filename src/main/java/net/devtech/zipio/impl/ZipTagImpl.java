@@ -31,6 +31,13 @@ public class ZipTagImpl implements ZipTag {
 		this.handler.copy(fileName, input);
 	}
 
+	public void copyWrite(String fileName, Path compressedData, ByteBuffer uncompressedData) {
+		if(this.handler == null) {
+			throw new IllegalStateException("Not executing!");
+		}
+		this.handler.copyWrite(fileName, compressedData, uncompressedData);
+	}
+
 	@Override
 	public boolean isExecuting() {
 		return this.handler != null;

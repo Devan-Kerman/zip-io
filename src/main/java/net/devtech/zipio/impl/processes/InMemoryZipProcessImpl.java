@@ -48,6 +48,9 @@ public class InMemoryZipProcessImpl implements MemoryZipProcess, InternalZipProc
 			for(TransferPair<ByteBuffer> write : node.writePair) {
 				handler.write(write.destination, write.data);
 			}
+			for(TransferCopyPair copy : node.optCopies) {
+				handler.copyWrite(copy.destination, copy.path, copy.buffer);
+			}
 		}
 	}
 
@@ -71,6 +74,7 @@ public class InMemoryZipProcessImpl implements MemoryZipProcess, InternalZipProc
 	public static class TransferHandlerNode implements TransferHandler {
 		List<TransferPair<Path>> copyPair = List.of();
 		List<TransferPair<ByteBuffer>> writePair = List.of();
+		List<TransferCopyPair> optCopies = List.of();
 
 		@Override
 		public void copy(String destination, Path path) {
@@ -79,12 +83,12 @@ public class InMemoryZipProcessImpl implements MemoryZipProcess, InternalZipProc
 
 		@Override
 		public void write(String destination, ByteBuffer buffer) {
-			// buffers are pooled and temporary, so we must copy them
-			int pos = buffer.limit();
-			ByteBuffer clone = ByteBuffer.allocate(pos);
-			clone.put(0, buffer, 0, pos);
-			clone.limit(pos);
-			this.writePair = U.add(this.writePair, new TransferPair<>(clone, destination));
+			this.writePair = U.add(this.writePair, new TransferPair<>(buffer, destination));
+		}
+
+		@Override
+		public void copyWrite(String destination, Path compressedData, ByteBuffer uncompressedData) {
+			this.optCopies = U.add(this.optCopies, new TransferCopyPair(compressedData, uncompressedData, destination));
 		}
 
 		@Override
@@ -95,4 +99,5 @@ public class InMemoryZipProcessImpl implements MemoryZipProcess, InternalZipProc
 
 	record TransferPair<T>(T data, String destination) {}
 	record TransferHandlerPair(OutputTag path, TransferHandlerNode handler) {}
+	record TransferCopyPair(Path path, ByteBuffer buffer, String destination) {}
 }

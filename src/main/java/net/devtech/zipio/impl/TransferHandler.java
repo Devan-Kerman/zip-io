@@ -21,6 +21,10 @@ public interface TransferHandler extends AutoCloseable, ZipOutput {
 		}
 
 		@Override
+		public void copyWrite(String destination, Path compressedData, ByteBuffer uncompressedData) {
+		}
+
+		@Override
 		public void close() throws Exception {
 		}
 	};
@@ -30,6 +34,8 @@ public interface TransferHandler extends AutoCloseable, ZipOutput {
 
 	@Override
 	void write(String destination, ByteBuffer buffer);
+
+	void copyWrite(String destination, Path compressedData, ByteBuffer uncompressedData);
 
 	default TransferHandler combine(TransferHandler b) {
 		if(this instanceof System s) { // prioritize writing to improve speed
@@ -53,7 +59,13 @@ public interface TransferHandler extends AutoCloseable, ZipOutput {
 		@Override
 		public void write(String destination, ByteBuffer buffer) {
 			Path compressed = this.a.write_(destination, buffer);
-			this.b.copy(destination, compressed);
+			this.b.copyWrite(destination, compressed, buffer);
+		}
+
+		@Override
+		public void copyWrite(String destination, Path compressedData, ByteBuffer uncompressedData) {
+			this.a.copyWrite(destination, compressedData, uncompressedData);
+			this.b.copyWrite(destination, compressedData, uncompressedData);
 		}
 
 		@Override
@@ -82,6 +94,12 @@ public interface TransferHandler extends AutoCloseable, ZipOutput {
 			this.a.close();
 			this.b.close();
 		}
+
+		@Override
+		public void copyWrite(String destination, Path compressedData, ByteBuffer uncompressedData) {
+			this.a.copyWrite(destination, compressedData, uncompressedData);
+			this.b.copyWrite(destination, compressedData, uncompressedData);
+		}
 	}
 
 	record System(FileSystem system, boolean compressed) implements TransferHandler {
@@ -93,6 +111,11 @@ public interface TransferHandler extends AutoCloseable, ZipOutput {
 		@Override
 		public void write(String destination, ByteBuffer buffer) {
 			this.write_(destination, buffer);
+		}
+
+		@Override
+		public void copyWrite(String destination, Path compressedData, ByteBuffer uncompressedData) {
+			this.copy(destination, compressedData);
 		}
 
 		public Path write_(String destination, ByteBuffer buffer) {
