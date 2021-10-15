@@ -266,7 +266,8 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 		if(output == OutputTag.INPUT) {
 			return TransferHandler.EMPTY;
 		}
-		TransferHandler system = output.path == null ? null : new TransferHandler.System(systems.computeIfAbsent(output.path, U::createZip));
+		// todo support directories
+		TransferHandler system = output.path == null ? null : new TransferHandler.System(systems.computeIfAbsent(output.path, U::createZip), true);
 		if(handlerProvider != null) {
 			TransferHandler handler = handlerProvider.apply(output);
 			if(handler == null) {
@@ -274,7 +275,7 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 			} else if(system == null) {
 				return handler;
 			} else {
-				return handler.andThen(system);
+				return handler.combine(system);
 			}
 		} else {
 			return system;

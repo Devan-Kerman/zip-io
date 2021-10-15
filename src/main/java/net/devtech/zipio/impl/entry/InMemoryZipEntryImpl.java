@@ -20,6 +20,7 @@ public class InMemoryZipEntryImpl extends AbstractVirtualZipEntry {
 
 	@Override
 	public ByteBuffer read() {
+		this.contents.rewind();
 		return this.contents;
 	}
 

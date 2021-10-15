@@ -31,8 +31,36 @@ public interface TransferHandler extends AutoCloseable, ZipOutput {
 	@Override
 	void write(String destination, ByteBuffer buffer);
 
-	default TransferHandler andThen(TransferHandler b) {
-		return new AndThen(this, b);
+	default TransferHandler combine(TransferHandler b) {
+		if(this instanceof System s) { // prioritize writing to improve speed
+			return new SystemOptimizedAndThen(s, b);
+		} else if(b instanceof System s) {
+			return new SystemOptimizedAndThen(s, this);
+		} else {
+			return new AndThen(this, b);
+		}
+	}
+
+	record SystemOptimizedAndThen(System a, TransferHandler b) implements TransferHandler {
+		// todo improve dir-to-zip and zip-to-dir copying
+
+		@Override
+		public void copy(String destination, Path path) {
+			this.a.copy(destination, path);
+			this.b.copy(destination, path);
+		}
+
+		@Override
+		public void write(String destination, ByteBuffer buffer) {
+			Path compressed = this.a.write_(destination, buffer);
+			this.b.copy(destination, compressed);
+		}
+
+		@Override
+		public void close() throws Exception {
+			this.a.close();
+			this.b.close();
+		}
 	}
 
 	record AndThen(TransferHandler a, TransferHandler b) implements TransferHandler {
@@ -56,26 +84,32 @@ public interface TransferHandler extends AutoCloseable, ZipOutput {
 		}
 	}
 
-	class System implements TransferHandler {
-		final FileSystem system;
-
-		public System(FileSystem system) {
-			this.system = system;
-		}
-
+	record System(FileSystem system, boolean compressed) implements TransferHandler {
 		@Override
 		public void copy(String destination, Path path) {
-			try {
-				Files.copy(path, this.getOut(destination));
-			} catch(IOException e) {
-				throw U.rethrow(e);
-			}
+			this.copy_(destination, path);
 		}
 
 		@Override
 		public void write(String destination, ByteBuffer buffer) {
-			try(OutputStream stream = Files.newOutputStream(this.getOut(destination))) {
+			this.write_(destination, buffer);
+		}
+
+		public Path write_(String destination, ByteBuffer buffer) {
+			Path out;
+			try(OutputStream stream = Files.newOutputStream(out = this.getOut(destination))) {
 				stream.write(buffer.array(), buffer.arrayOffset(), buffer.limit());
+			} catch(IOException e) {
+				throw U.rethrow(e);
+			}
+			return out;
+		}
+
+		public Path copy_(String destination, Path path) {
+			try {
+				Path out = this.getOut(destination);
+				Files.copy(path, out);
+				return out;
 			} catch(IOException e) {
 				throw U.rethrow(e);
 			}

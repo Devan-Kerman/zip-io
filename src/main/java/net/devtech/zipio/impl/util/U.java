@@ -41,6 +41,7 @@ public class U {
 			throw rethrow(e);
 		}
 		curr.limit(curr.limit() - curr.remaining());
+		curr.rewind();
 		return curr;
 	}
 
