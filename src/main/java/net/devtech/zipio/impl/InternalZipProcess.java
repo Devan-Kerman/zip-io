@@ -6,8 +6,10 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.function.Function;
 
-public interface InternalZipProcess {
-	void execute(Map<Path, FileSystem> toClose, Function<Path, TransferHandler> handlerProvider) throws IOException;
+import net.devtech.zipio.OutputTag;
 
-	Iterable<Path> processed();
+public interface InternalZipProcess {
+	void execute(Map<Path, FileSystem> toClose, Function<OutputTag, TransferHandler> handlerProvider) throws IOException;
+
+	Iterable<OutputTag> processed();
 }

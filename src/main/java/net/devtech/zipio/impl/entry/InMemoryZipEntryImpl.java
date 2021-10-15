@@ -6,6 +6,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import net.devtech.zipio.ZipTag;
 import net.devtech.zipio.impl.TransferHandler;
 import net.devtech.zipio.impl.util.U;
 
@@ -39,5 +40,10 @@ public class InMemoryZipEntryImpl extends AbstractVirtualZipEntry {
 		} catch(IOException e) {
 			throw U.rethrow(e);
 		}
+	}
+
+	@Override
+	public void copyTo(String path, ZipTag tag) {
+		tag.write(path, this.contents);
 	}
 }

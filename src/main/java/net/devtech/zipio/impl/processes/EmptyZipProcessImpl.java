@@ -3,6 +3,7 @@ package net.devtech.zipio.impl.processes;
 import java.nio.file.Path;
 import java.util.List;
 
+import net.devtech.zipio.OutputTag;
 import net.devtech.zipio.processes.MemoryZipProcess;
 
 public class EmptyZipProcessImpl implements MemoryZipProcess {
@@ -16,7 +17,7 @@ public class EmptyZipProcessImpl implements MemoryZipProcess {
 	}
 
 	@Override
-	public Iterable<Path> getOutputs() {
+	public Iterable<OutputTag> getOutputs() {
 		return List.of();
 	}
 

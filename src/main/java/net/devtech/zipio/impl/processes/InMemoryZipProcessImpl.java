@@ -8,12 +8,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import net.devtech.zipio.OutputTag;
 import net.devtech.zipio.processes.MemoryZipProcess;
 import net.devtech.zipio.impl.InternalZipProcess;
 import net.devtech.zipio.impl.TransferHandler;
 import net.devtech.zipio.impl.util.U;
 
-public class InMemoryZipProcessImpl implements MemoryZipProcess, InternalZipProcess, Function<Path, TransferHandler> {
+public class InMemoryZipProcessImpl implements MemoryZipProcess, InternalZipProcess, Function<OutputTag, TransferHandler> {
 	final Map<Path, FileSystem> toClose;
 	List<TransferHandlerPair> pairs = List.of();
 
@@ -31,12 +32,13 @@ public class InMemoryZipProcessImpl implements MemoryZipProcess, InternalZipProc
 	}
 
 	@Override
-	public Iterable<Path> getOutputs() {
-		return null;
+	public Iterable<OutputTag> getOutputs() {
+		// todo
+		return List.of();
 	}
 
 	@Override
-	public void execute(Map<Path, FileSystem> toClose, Function<Path, TransferHandler> provider) throws IOException {
+	public void execute(Map<Path, FileSystem> toClose, Function<OutputTag, TransferHandler> provider) throws IOException {
 		for(TransferHandlerPair pair : this.pairs) {
 			TransferHandler handler = provider.apply(pair.path);
 			TransferHandlerNode node = pair.handler;
@@ -50,20 +52,20 @@ public class InMemoryZipProcessImpl implements MemoryZipProcess, InternalZipProc
 	}
 
 	@Override
-	public Iterable<Path> processed() {
+	public Iterable<OutputTag> processed() {
 		return List.of();
-	}
-
-	@Override
-	public TransferHandler apply(Path path) {
-		TransferHandlerNode handler = new TransferHandlerNode();
-		this.pairs = U.add(this.pairs, new TransferHandlerPair(path, handler));
-		return handler;
 	}
 
 	@Override
 	public void close() throws Exception {
 		U.close(this.toClose);
+	}
+
+	@Override
+	public TransferHandler apply(OutputTag tag) {
+		TransferHandlerNode handler = new TransferHandlerNode();
+		this.pairs = U.add(this.pairs, new TransferHandlerPair(tag, handler));
+		return handler;
 	}
 
 	public static class TransferHandlerNode implements TransferHandler {
@@ -92,5 +94,5 @@ public class InMemoryZipProcessImpl implements MemoryZipProcess, InternalZipProc
 	}
 
 	record TransferPair<T>(T data, String destination) {}
-	record TransferHandlerPair(Path path, TransferHandlerNode handler) {}
+	record TransferHandlerPair(OutputTag path, TransferHandlerNode handler) {}
 }

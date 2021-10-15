@@ -11,6 +11,20 @@ import net.devtech.zipio.ZipOutput;
 import net.devtech.zipio.impl.util.U;
 
 public interface TransferHandler extends AutoCloseable, ZipOutput {
+	TransferHandler EMPTY = new TransferHandler() {
+		@Override
+		public void copy(String destination, Path path) {
+		}
+
+		@Override
+		public void write(String destination, ByteBuffer buffer) {
+		}
+
+		@Override
+		public void close() throws Exception {
+		}
+	};
+
 	@Override
 	void copy(String destination, Path path);
 

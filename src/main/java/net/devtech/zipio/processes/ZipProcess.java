@@ -3,6 +3,7 @@ package net.devtech.zipio.processes;
 import java.io.IOException;
 import java.nio.file.Path;
 
+import net.devtech.zipio.OutputTag;
 import net.devtech.zipio.impl.processes.EmptyZipProcessImpl;
 import net.devtech.zipio.impl.processes.ZipProcessImpl;
 
@@ -31,5 +32,5 @@ public interface ZipProcess {
 	 * @return the current outputs of the ZipProcess, files may or may not exist when this method is invoked.
 	 *  After {@link #execute()} is called, they *should* exist.
 	 */
-	Iterable<Path> getOutputs();
+	Iterable<OutputTag> getOutputs();
 }

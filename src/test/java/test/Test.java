@@ -1,8 +1,10 @@
 package test;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.net.URL;
 import java.nio.ByteBuffer;
@@ -14,6 +16,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Spliterator;
 import java.util.Spliterators;
@@ -27,10 +30,11 @@ import com.google.common.jimfs.Jimfs;
 import net.devtech.zipio.impl.processes.ZipProcessImpl;
 import net.devtech.zipio.impl.util.U;
 import net.devtech.zipio.processors.entry.ProcessResult;
+import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 
 public class Test {
-	static final FileSystem MEM = Jimfs.newFileSystem();
 
 	public static void downloadToRandomAccessFile(URL url, Path output) throws IOException {
 		File temp = File.createTempFile("zip_io_devtech", ".zip");
@@ -60,21 +64,25 @@ public class Test {
 	}
 
 	public static void downloadToVirtualSystem(URL url, Path output) throws IOException {
-		Path temp = MEM.getPath("temp.jar");
-		try(ReadableByteChannel input = Channels.newChannel(url.openStream()); SeekableByteChannel out = Files.newByteChannel(temp,
-				StandardOpenOption.WRITE,
-				StandardOpenOption.CREATE)) {
-			ByteBuffer buffer = U.read(input);
-			int pos = buffer.position();
-			int old = buffer.limit();
-			buffer.position(0);
-			buffer.limit(pos);
-			out.write(buffer);
-			buffer.position(pos);
-			buffer.limit(old);
+		FileSystem memory = Jimfs.newFileSystem();
+		Path temp = memory.getPath("temp.jar");
+		Files.copy(url.openStream(), temp);
+		try(FileSystem system = U.openZip(temp)) {
+			for(Path directory : system.getRootDirectories()) {
+				Files.walk(directory)
+						.filter(p -> !p.toString().endsWith(".class"))
+						.filter(Files::isRegularFile)
+						.forEach(f -> {
+							try {
+								Files.delete(f);
+							} catch(IOException e) {
+								throw new RuntimeException(e);
+							}
+						});
+			}
 		}
 
-		ZipProcessImpl remove = new ZipProcessImpl();
+		/*ZipProcessImpl remove = new ZipProcessImpl();
 		remove.addZip(temp, output);
 		remove.setEntryProcessor(buffer -> {
 			if(buffer.path().endsWith(".class")) {
@@ -82,7 +90,7 @@ public class Test {
 			}
 			return ProcessResult.HANDLED;
 		});
-		remove.execute();
+		remove.execute();*/
 	}
 
 	public static void downloadReadThenOperate(URL url, Path output) throws IOException {
@@ -118,25 +126,40 @@ public class Test {
 		}
 	}
 
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException, InterruptedException {
 		URL url = new URL("https://launcher.mojang.com/v1/objects/8d9b65467c7913fcf6f5b2e729d44a1e00fde150/client.jar");
 		Path test = Path.of("test.jar");
+
 		for(int i = 0; i < 10; i++) {
-			extracted(url, test, "RAF", Test::downloadToRandomAccessFile);
-			extracted(url, test, "JIM", Test::downloadToVirtualSystem);
-			extracted(url, test, "DTO", Test::downloadReadThenOperate);
+			//extracted(url, test, "RAF", Test::downloadToRandomAccessFile);
 			extracted(url, test, "OAD", Test::operateAsDownload);
+			extracted(url, test, "JIM", Test::downloadToVirtualSystem);
+			//extracted(url, test, "DTO", Test::downloadReadThenOperate);
+
 		}
+
+		System.out.println("jit can my balls");
+
+		long totalJim = 0, totalOAD = 0;
+		for(int i = 0; i < 10; i++) {
+			//extracted(url, test, "RAF", Test::downloadToRandomAccessFile);
+			totalOAD += extracted(url, test, "OAD", Test::operateAsDownload);
+			totalJim += extracted(url, test, "JIM", Test::downloadToVirtualSystem);
+			//extracted(url, test, "DTO", Test::downloadReadThenOperate);
+
+		}
+		System.out.println(totalJim + " " + totalOAD);
 	}
 
 	interface Act {
 		void run(URL url, Path output) throws IOException;
 	}
 
-	private static void extracted(URL url, Path out, String name, Act act) throws IOException {
+	private static long extracted(URL url, Path out, String name, Act act) throws IOException {
 		long start = System.currentTimeMillis();
 		act.run(url, out);
 		long time = System.currentTimeMillis() - start;
 		System.out.println(name + ": " + time);
+		return time;
 	}
 }

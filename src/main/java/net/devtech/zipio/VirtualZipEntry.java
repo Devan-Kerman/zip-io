@@ -43,4 +43,6 @@ public interface VirtualZipEntry {
 	 * Copy the current zip entry to the given path
 	 */
 	void copyTo(Path path);
+
+	void copyTo(String path, ZipTag tag);
 }

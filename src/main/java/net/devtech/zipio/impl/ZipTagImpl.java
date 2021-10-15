@@ -2,14 +2,18 @@ package net.devtech.zipio.impl;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.function.Function;
 
+import net.devtech.zipio.OutputTag;
 import net.devtech.zipio.ZipTag;
 
 public class ZipTagImpl implements ZipTag {
-	public final Path output;
+	public final OutputTag tag;
 	public TransferHandler handler;
 
-	public ZipTagImpl(Path output) {this.output = output;}
+	public ZipTagImpl(OutputTag tag) {
+		this.tag = tag;
+	}
 
 	@Override
 	public void write(String fileName, ByteBuffer buffer) {
@@ -30,5 +34,10 @@ public class ZipTagImpl implements ZipTag {
 	@Override
 	public boolean isExecuting() {
 		return this.handler != null;
+	}
+
+	@Override
+	public OutputTag getTag() {
+		return this.tag;
 	}
 }

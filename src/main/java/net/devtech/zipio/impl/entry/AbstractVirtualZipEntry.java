@@ -5,6 +5,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 
 import net.devtech.zipio.VirtualZipEntry;
+import net.devtech.zipio.ZipTag;
 import net.devtech.zipio.impl.TransferHandler;
 import net.devtech.zipio.impl.util.U;
 

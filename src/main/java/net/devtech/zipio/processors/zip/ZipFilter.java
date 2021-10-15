@@ -1,14 +1,19 @@
 package net.devtech.zipio.processors.zip;
 
 import java.nio.file.FileSystem;
-import java.nio.file.Path;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
+import net.devtech.zipio.OutputTag;
 import net.devtech.zipio.processes.ZipProcess;
 import net.devtech.zipio.processes.ZipProcessBuilder;
 
 public interface ZipFilter {
+	/**
+	 * The default zip filter
+	 */
+	ZipFilter DEFAULT = null;
+
 	/**
 	 * Customize behavior for a specific zip based on the input path
 	 *
@@ -18,7 +23,7 @@ public interface ZipFilter {
 	 * @param file may not exist, may even be null
 	 * @param system The file system of the path, may return null
 	 */
-	ZipBehavior test(Path file, Supplier<FileSystem> system);
+	ZipBehavior test(OutputTag file, Supplier<FileSystem> system);
 
 	// todo instead of Path, pass something that gives URI, URL, Path, String, etc.
 	// remember we need to pass the input path and not the output path
