@@ -16,13 +16,20 @@ import java.util.Map;
 public class U {
 	private static final Map<String, ?> NIO_CREATE = Map.of("create", "true");
 
-	public static void close(Map<Path, FileSystem> systems) throws IOException {
+	public static boolean close(Map<Path, FileSystem> systems) {
 		Iterator<FileSystem> iterator = systems.values().iterator();
+		boolean fail = false;
 		while(iterator.hasNext()) {
 			FileSystem value = iterator.next();
 			iterator.remove();
-			value.close();
+			try {
+				value.close();
+			} catch(IOException e) {
+				fail = true;
+				e.printStackTrace();
+			}
 		}
+		return fail;
 	}
 
 	public static ByteBuffer read(ReadableByteChannel stream) {

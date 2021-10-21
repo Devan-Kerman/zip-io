@@ -12,8 +12,8 @@ import net.devtech.zipio.impl.ZipTagImpl;
 import net.devtech.zipio.impl.util.U;
 
 public class CopyWriteZipEntryImpl extends AbstractVirtualZipEntry {
-	final Path compressedPath;
-	final ByteBuffer uncompressedData;
+	public final Path compressedPath;
+	public final ByteBuffer uncompressedData;
 
 	public CopyWriteZipEntryImpl(TransferHandler handler, String destination, Path path, ByteBuffer data) {
 		super(handler, destination);

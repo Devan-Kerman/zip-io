@@ -6,9 +6,14 @@ import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import net.devtech.zipio.OutputTag;
+import net.devtech.zipio.VirtualZipEntry;
+import net.devtech.zipio.impl.entry.CopyWriteZipEntryImpl;
+import net.devtech.zipio.impl.entry.InMemoryZipEntryImpl;
+import net.devtech.zipio.impl.entry.RealZipEntry;
 import net.devtech.zipio.processes.MemoryZipProcess;
 import net.devtech.zipio.impl.InternalZipProcess;
 import net.devtech.zipio.impl.TransferHandler;
@@ -94,6 +99,30 @@ public class InMemoryZipProcessImpl implements MemoryZipProcess, InternalZipProc
 		@Override
 		public void close() {
 
+		}
+
+		public static void add(TransferHandler handler, VirtualZipEntry entry) {
+			if(entry instanceof CopyWriteZipEntryImpl w) {
+				handler.copyWrite(w.destination, w.compressedPath, w.uncompressedData);
+			} else if(entry instanceof RealZipEntry r) {
+				handler.copy(r.destination, r.inputFile);
+			} else if(entry instanceof InMemoryZipEntryImpl i) {
+				handler.write(i.destination, i.contents);
+			} else {
+				throw new UnsupportedOperationException("Unknown type " + entry.getClass());
+			}
+		}
+
+		public void appendToList(TransferHandler handler, Consumer<VirtualZipEntry> entries) {
+			for(TransferPair<Path> pair : this.copyPair) {
+				entries.accept(new RealZipEntry(handler, pair.data, pair.destination));
+			}
+			for(TransferPair<ByteBuffer> pair : this.writePair) {
+				entries.accept(new InMemoryZipEntryImpl(handler, pair.data, pair.destination));
+			}
+			for(TransferCopyPair copy : this.optCopies) {
+				entries.accept(new CopyWriteZipEntryImpl(handler, copy.destination, copy.path, copy.buffer));
+			}
 		}
 	}
 

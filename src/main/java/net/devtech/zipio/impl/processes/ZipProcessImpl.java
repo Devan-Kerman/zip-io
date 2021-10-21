@@ -102,9 +102,15 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 	@Override
 	public void execute() throws IOException {
 		Map<Path, FileSystem> toClose = new HashMap<>();
-		this.execute(toClose, null);
-		U.close(toClose);
-		this.close();
+		boolean err;
+		try {
+			this.execute(toClose, null);
+		} finally {
+			err = U.close(toClose) | this.close();
+		}
+		if(err) {
+			throw new IOException("Error in closing zip process!");
+		}
 	}
 
 	@Override
@@ -249,17 +255,20 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 		}
 	}
 
-	private void close() throws IOException {
+	private boolean close() throws IOException {
+		boolean errored = false;
 		for(AutoCloseable closeable : this.closeables) {
 			try {
 				closeable.close();
 			} catch(Exception e) {
-				throw new IOException("Error when closing zip process!", e);
+				errored = true;
+				e.printStackTrace();
 			}
 		}
 		if(!this.closeables.isEmpty()) {
 			this.closeables.clear();
 		}
+		return errored;
 	}
 
 	private TransferHandler getHandler(Map<Path, FileSystem> systems, Function<OutputTag, TransferHandler> handlerProvider, OutputTag output) {
