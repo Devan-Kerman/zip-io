@@ -86,6 +86,10 @@ public class U {
 			return null;
 		}
 		try {
+			Path parent = path.getParent();
+			if(parent != null) {
+				Files.createDirectories(parent);
+			}
 			Files.deleteIfExists(path);
 			return FileSystems.newFileSystem(path, NIO_CREATE);
 		} catch(IOException e) {

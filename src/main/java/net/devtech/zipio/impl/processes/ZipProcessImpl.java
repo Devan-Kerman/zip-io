@@ -316,14 +316,14 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 	private void extracted(List<OutputTag> outputs, ZipFilter processor, OutputTag input, OutputTag output, boolean tempSystem) throws IOException {
 		Lazy<FileSystem> system = tempSystem ? new Lazy<>(() -> U.openZip(input.path)) : Lazy.empty();
 		try {
-			ZipBehavior behavior = processor == null ? ZipBehavior.CONTINUE : processor.test(output, system);
+			ZipBehavior behavior = processor == null ? ZipBehavior.CONTINUE : processor.test(input, system);
 			if(behavior == ZipBehavior.CONTINUE) {
 				outputs.add(output);
 			} else if(behavior == ZipBehavior.COPY) {
 				outputs.add(input);
 			}
 		} finally {
-			if(system.supplier == null) {
+			if(system.value != null) {
 				system.value.close();
 			}
 		}

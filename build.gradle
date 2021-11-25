@@ -1,10 +1,11 @@
 plugins {
     id 'java'
     id 'maven-publish'
+    id 'idea'
 }
 
 group 'net.devtech'
-version '3.1.0'
+version '3.1.1'
 
 repositories {
     mavenCentral()
