@@ -6,14 +6,16 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Vector;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import net.devtech.zipio.OutputTag;
@@ -41,31 +43,40 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 	List<OutputTag> processed = List.of();
 	List<Runnable> afterExecute = List.of();
 	List<Process<ZipProcess, UnaryOperator<OutputTag>>> processes = List.of();
+	List<ZipProcess> child = List.of();
 	List<Process<OutputTag, OutputTag>> zips = List.of();
 	List<ZipTagImpl> tags = List.of();
 	List<AutoCloseable> closeables = List.of();
+	boolean lock;
 	ZipEntryProcessor perEntry, postProcess;
 
 	@Override
 	public TaskTransform defaults() {
+		this.validateLock();
 		return this.defaults;
 	}
 
 	@Override
 	public void addCloseable(Closeable closeable) {
+		this.validateLock();
 		this.closeables = U.add(this.closeables, closeable);
 	}
 
 	@Override
 	public TaskTransform linkProcess(ZipProcess process, UnaryOperator<OutputTag> newOutput) {
+		this.validateLock();
 		var linked = new Process<>(process, newOutput);
 		linked.loadDefaults(this.defaults);
 		this.processes = U.add(this.processes, linked);
+		if(process instanceof ZipProcessImpl z) {
+			z.child = U.add(z.child, this);
+		}
 		return linked;
 	}
 
 	@Override
 	public ZipTransform addZip(Path path, OutputTag output) {
+		this.validateLock();
 		var linked = new Process<>(new OutputTag(path), output);
 		linked.loadDefaults(this.defaults);
 		this.zips = U.add(this.zips, linked);
@@ -73,7 +84,14 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 	}
 
 	@Override
+	public void afterExecute(Runnable runnable) {
+		this.validateLock();
+		this.afterExecute = U.add(this.afterExecute, runnable);
+	}
+
+	@Override
 	public ZipTag createZipTag(OutputTag outputPath) {
+		this.validateLock();
 		ZipTagImpl tag = new ZipTagImpl(outputPath);
 		this.tags = U.add(this.tags, tag);
 		return tag;
@@ -81,27 +99,25 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 
 	@Override
 	public void addProcessed(OutputTag output) {
+		this.validateLock();
 		this.processed = U.add(this.processed, output);
 	}
 
 	@Override
 	public void setEntryProcessor(ZipEntryProcessor processor) {
+		this.validateLock();
 		this.perEntry = processor;
 	}
 
 	@Override
 	public void setPostProcessor(ZipEntryProcessor handler) {
+		this.validateLock();
 		this.postProcess = handler;
 	}
 
 	@Override
-	public void afterExecute(Runnable runnable) {
-		this.afterExecute = U.add(this.afterExecute, runnable);
-	}
-
-	@Override
 	public void execute() throws IOException {
-		Map<Path, FileSystem> toClose = new HashMap<>();
+		Map<Path, FileSystem> toClose = new ConcurrentHashMap<>();
 		boolean err;
 		try {
 			this.execute(toClose, null);
@@ -115,13 +131,14 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 
 	@Override
 	public MemoryZipProcess executeCached() throws IOException {
-		Map<Path, FileSystem> toClose = new HashMap<>();
+		Map<Path, FileSystem> toClose = new ConcurrentHashMap<>();
 		// todo add validation to ensure process is closed whenever this is called?
 		InMemoryZipProcessImpl process = new InMemoryZipProcessImpl(toClose);
 		this.execute(toClose, process);
 		this.close();
 		return process;
 	}
+
 
 	@Override
 	public Iterable<OutputTag> getOutputs() {
@@ -134,83 +151,75 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 
 	@Override
 	public void execute(Map<Path, FileSystem> toClose, Function<OutputTag, TransferHandler> handlerProvider) throws IOException {
+		this.lock = true;
 		List<ToPostProcessPair> pairs = new ArrayList<>();
 		List<VirtualZipEntry> afterAll = this.postProcess == null ? null : new Vector<>();
 		for(ZipTagImpl tag : this.tags) {
 			tag.handler = this.getHandler(toClose, handlerProvider, tag.getTag());
 		}
 
+		ForkJoinPool pool = ForkJoinPool.commonPool();
+
+		List<CompletableFuture<?>> futures = new ArrayList<>();
 		for(var iterator = this.zips.iterator(); iterator.hasNext(); ) {
 			var zip = iterator.next();
 			OutputTag output = zip.b, input = zip.a;
-			this.invokeFileIO(zip, handlerProvider, toClose, afterAll, input, output, zip.zipPre.apply(zip.a), zip.zipPost.apply(zip.a), pairs);
+			futures.add(this.invokeFileIO(zip,
+					handlerProvider,
+					toClose,
+					afterAll,
+					input,
+					output,
+					zip.zipPre.apply(zip.a),
+					zip.finalizing.apply(zip.a),
+					pairs,
+					pool
+			));
 			iterator.remove();
 		}
 
 		for(var iterator = this.processes.iterator(); iterator.hasNext(); ) {
-			var process = iterator.next(); // todo decide whether to pass output or input
+			var process = iterator.next();
 			if(process.a instanceof InternalZipProcess i) {
 				for(OutputTag input : i.processed()) { // this must be first
-					this.invokeFileIO(process,
+					futures.add(this.invokeFileIO(process,
 							handlerProvider,
 							toClose,
 							afterAll,
 							input,
 							process.b.apply(input),
 							process.zipPre.apply(input),
-							process.zipPost.apply(input),
-							pairs);
+							process.finalizing.apply(input),
+							pairs,
+							pool
+					));
 				}
 
 				i.execute(toClose, input -> {
-					if(input == OutputTag.INPUT) {
-						return null;
-					}
-					// and here
-					ZipFilter filter = process.zipPre.apply(input);
-					ZipBehavior behavior = filter == null ? ZipBehavior.CONTINUE : filter.test(input, Lazy.empty());
-					if(behavior == ZipBehavior.CONTINUE) {
-						OutputTag output = process.b.apply(input);
-						TransferHandler transfer = this.getHandler(toClose, handlerProvider, output);
-						this.processed = U.add(this.processed, output);
-						if(transfer != null) {
-							PostZipProcessor zipPost = process.zipPost.apply(input);
-							if(zipPost != null) {
-								pairs.add(new ToPostProcessPair(transfer, zipPost));
-							}
-							return new ProcessingTransferHandler(transfer,
-									afterAll,
-									this.perEntry,
-									process.entryPost.apply(input),
-									process.entryPre.apply(input),
-									this.postProcess != null);
-						} else {
-							return null;
-						}
-					} else if(behavior == ZipBehavior.COPY) {
-						this.copy(handlerProvider, toClose, input);
-						return null;
-					} else {
-						return null;
-					}
+					return getHandler(toClose, handlerProvider, pairs, afterAll, process, input);
 				});
 			} else {
 				process.a.execute();
 				for(OutputTag input : process.a.getOutputs()) {
 					// filter needs to be placed here
-					this.invokeFileIO(process,
+					futures.add(this.invokeFileIO(process,
 							handlerProvider,
 							toClose,
 							afterAll,
 							input,
 							process.b.apply(input),
 							process.zipPre.apply(input),
-							process.zipPost.apply(input),
-							pairs);
+							process.finalizing.apply(input),
+							pairs,
+							pool
+					));
 				}
 			}
 			iterator.remove();
 		}
+
+		CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+		futures.clear();
 
 		if(afterAll != null) {
 			for(VirtualZipEntry impl : afterAll) {
@@ -222,8 +231,9 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 		}
 
 		for(ToPostProcessPair pair : pairs) {
-			pair.processor.apply(pair.handler);
+			futures.add(CompletableFuture.runAsync(() -> pair.processor.apply(pair.handler), pool));
 		}
+		CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
 
 		if(!this.processes.isEmpty()) {
 			this.processes.clear();
@@ -238,13 +248,13 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 		}
 	}
 
-	// adding branches is going to be extremely painful
-	// we need to account for "loops" n shit too irrrr painnn
-
 	@Override
 	public Iterable<OutputTag> processed() {
 		return this.processed;
 	}
+
+	// adding branches is going to be extremely painful
+	// we need to account for "loops" n shit too irrrr painnn
 
 	private static void visit(FileSystem in, TransferHandler handler) throws IOException {
 		for(Path directory : in.getRootDirectories()) {
@@ -252,6 +262,49 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 				String to = directory.relativize(path).toString();
 				handler.copy(to, path);
 			});
+		}
+	}
+
+	private ProcessingTransferHandler getHandler(Map<Path, FileSystem> toClose,
+			Function<OutputTag, TransferHandler> handlerProvider,
+			List<ToPostProcessPair> pairs,
+			List<VirtualZipEntry> afterAll,
+			Process<ZipProcess, UnaryOperator<OutputTag>> process,
+			OutputTag input) {
+		if(input == OutputTag.INPUT) {
+			return null;
+		}
+		// and here
+		ZipFilter filter = process.zipPre.apply(input);
+		ZipBehavior behavior = filter == null ? ZipBehavior.CONTINUE : filter.test(input, Lazy.empty());
+		if(behavior == ZipBehavior.CONTINUE) {
+			OutputTag output = process.b.apply(input);
+			TransferHandler transfer = this.getHandler(toClose, handlerProvider, output);
+			this.processed = U.add(this.processed, output);
+			if(transfer != null) {
+				PostZipProcessor finalizing = process.finalizing.apply(input);
+				if(finalizing != null) {
+					pairs.add(new ToPostProcessPair(transfer, finalizing));
+				}
+				return new ProcessingTransferHandler(transfer,
+						afterAll,
+						this.perEntry,
+						process.entryPost.apply(input),
+						process.entryPre.apply(input),
+						process.zipPost.apply(input),
+						this.postProcess != null
+				);
+			} else {
+				return null;
+			}
+		} else if(behavior == ZipBehavior.COPY) {
+			this.copy(handlerProvider, toClose, input);
+			return null;
+		} else if(behavior == ZipBehavior.USE_OUTPUT) {
+			this.copy(handlerProvider, toClose, process.b.apply(input));
+			return null;
+		} else {
+			return null;
 		}
 	}
 
@@ -298,26 +351,27 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 		}
 		for(var zip : this.zips) {
 			if(zip.b != null) {
-				this.extracted(outputs, zip.zipPre.apply(zip.a), zip.a, zip.b, true);
+				this.computeOutput(outputs, zip.zipPre.apply(zip.a), zip.a, zip.b, true);
 			}
 		}
 		for(var process : this.processes) {
 			for(OutputTag output : process.a.getOutputs()) {
 				if(process.b != null) {
-					this.extracted(outputs, process.zipPre.apply(output), output, process.b.apply(output), false);
+					this.computeOutput(outputs, process.zipPre.apply(output), output, process.b.apply(output), false);
 				}
 			}
 		}
 		outputs.addAll(this.processed);
 		outputs.removeIf(Objects::isNull);
+		outputs.removeIf(o -> o == OutputTag.INPUT);
 		return outputs;
 	}
 
-	private void extracted(List<OutputTag> outputs, ZipFilter processor, OutputTag input, OutputTag output, boolean tempSystem) throws IOException {
+	private void computeOutput(List<OutputTag> outputs, ZipFilter processor, OutputTag input, OutputTag output, boolean tempSystem) throws IOException {
 		Lazy<FileSystem> system = tempSystem ? new Lazy<>(() -> U.openZip(input.path)) : Lazy.empty();
 		try {
 			ZipBehavior behavior = processor == null ? ZipBehavior.CONTINUE : processor.test(input, system);
-			if(behavior == ZipBehavior.CONTINUE) {
+			if(behavior == ZipBehavior.CONTINUE || behavior == ZipBehavior.USE_OUTPUT) {
 				outputs.add(output);
 			} else if(behavior == ZipBehavior.COPY) {
 				outputs.add(input);
@@ -329,32 +383,39 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 		}
 	}
 
-	private void invokeFileIO(Process<?, ?> linked,
+	private CompletableFuture<?> invokeFileIO(Process<?, ?> linked,
 			Function<OutputTag, TransferHandler> handlerProvider,
 			Map<Path, FileSystem> toClose,
 			List<VirtualZipEntry> afterAll,
 			OutputTag input,
 			OutputTag output,
 			ZipFilter filter,
-			PostZipProcessor transform,
-			List<ToPostProcessPair> pairs) {
+			PostZipProcessor finalizing,
+			List<ToPostProcessPair> pairs,
+			Executor executor) {
+		CompletableFuture<?> future = null;
 		Lazy<FileSystem> inputSystem = new Lazy<>(() -> toClose.computeIfAbsent(input.path, U::openZip));
 		ZipBehavior behavior = filter == null ? ZipBehavior.CONTINUE : filter.test(input, inputSystem);
 		if(behavior == ZipBehavior.CONTINUE) {
 			TransferHandler transfer = this.getHandler(toClose, handlerProvider, output);
 			if(transfer != null) {
-				try(ProcessingTransferHandler processing = new ProcessingTransferHandler(transfer,
-						afterAll,
-						this.perEntry,
-						linked.entryPre.apply(input),
-						linked.entryPost.apply(input),
-						this.postProcess != null)) {
-					visit(inputSystem.get(), processing);
-				} catch(Exception e1) {
-					throw U.rethrow(e1);
-				}
-				if(transform != null) {
-					pairs.add(new ToPostProcessPair(transfer, transform));
+				future = CompletableFuture.runAsync(() -> {
+					try(ProcessingTransferHandler processing = new ProcessingTransferHandler(transfer,
+							afterAll,
+							this.perEntry,
+							linked.entryPost.apply(input),
+							linked.entryPre.apply(input),
+							linked.zipPost.apply(input),
+							this.postProcess != null
+					)) {
+						visit(inputSystem.get(), processing);
+					} catch(Exception e1) {
+						throw U.rethrow(e1);
+					}
+				}, executor);
+
+				if(finalizing != null) {
+					pairs.add(new ToPostProcessPair(transfer, finalizing));
 				}
 			}
 
@@ -362,7 +423,16 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 				this.processed = U.add(this.processed, output);
 			}
 		} else if(behavior == ZipBehavior.COPY) {
-			this.copy(handlerProvider, toClose, input);
+			// todo warn if input != output?
+			future = CompletableFuture.runAsync(() -> this.copy(handlerProvider, toClose, input), executor);
+		} else if(behavior == ZipBehavior.USE_OUTPUT) {
+			future = CompletableFuture.runAsync(() -> this.copy(handlerProvider, toClose, output), executor);
+		}
+
+		if(future == null) {
+			return CompletableFuture.completedFuture(null);
+		} else {
+			return future;
 		}
 	}
 
@@ -380,15 +450,21 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 		this.processed = U.add(this.processed, input);
 	}
 
+	void validateLock() {
+		if(this.lock) {
+			throw new IllegalStateException("ZipProcess was already executed, cannot add new inputs!");
+		}
+	}
+
 	record ToPostProcessPair(TransferHandler handler, PostZipProcessor processor) {}
 
-	static class Process<A, B> implements TaskTransform, ZipTransform {
+	class Process<A, B> implements TaskTransform, ZipTransform {
 		final A a;
 		final B b;
 		Function<OutputTag, ZipFilter> zipPre = p -> ZipFilter.DEFAULT;
-		Function<OutputTag, PostZipProcessor> zipPost = p -> null;
+		Function<OutputTag, PostZipProcessor> finalizing = p -> null;
 		Function<OutputTag, ZipEntryProcessor> entryPost = p -> null, entryPre = p -> null;
-		Predicate<OutputTag> pass = p -> false;
+		Function<OutputTag, PostZipProcessor> zipPost = p -> null;
 
 		Process(A process, B newOutput) {
 			this.a = process;
@@ -397,10 +473,10 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 
 		public void loadDefaults(Process<?, ?> process) {
 			this.zipPre = process.zipPre;
-			this.zipPost = process.zipPost;
+			this.finalizing = process.finalizing;
 			this.entryPre = process.entryPre;
 			this.entryPost = process.entryPost;
-			this.pass = process.pass;
+			this.zipPost = process.zipPost;
 		}
 
 		@Override
@@ -424,8 +500,8 @@ public class ZipProcessImpl implements ZipProcessBuilder, InternalZipProcess {
 		}
 
 		@Override
-		public void setProcessOnly(Predicate<OutputTag> processOnly) {
-			this.pass = processOnly;
+		public void setFinalizingZipProcessor(Function<OutputTag, PostZipProcessor> processor) {
+			this.finalizing = processor;
 		}
 	}
 }

@@ -48,8 +48,6 @@ public interface TransferHandler extends AutoCloseable, ZipOutput {
 	}
 
 	record SystemOptimizedAndThen(System a, TransferHandler b) implements TransferHandler {
-		// todo improve dir-to-zip and zip-to-dir copying
-
 		@Override
 		public void copy(String destination, Path path) {
 			this.a.copy(destination, path);
@@ -87,7 +85,6 @@ public interface TransferHandler extends AutoCloseable, ZipOutput {
 			this.a.write(destination, buffer);
 			this.b.write(destination, buffer);
 		}
-
 
 		@Override
 		public void close() throws Exception {

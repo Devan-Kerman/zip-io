@@ -1,8 +1,6 @@
 package net.devtech.zipio.stage;
 
-import java.nio.file.Path;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
 import net.devtech.zipio.OutputTag;
 import net.devtech.zipio.processes.ZipProcessBuilder;
@@ -18,7 +16,7 @@ public interface TaskTransform {
 	void setZipFilter(Function<OutputTag, ZipFilter> processor);
 
 	/**
-	 * @param processor This processor is fired for every entry with {@link ProcessResult#POST} (or for every entry if there is no entry processor) in this object
+	 * @param processor This processor is fired after every entry is processed, the exact stage is not guaranteed
 	 */
 	void setPostZipProcessor(Function<OutputTag, PostZipProcessor> processor);
 
@@ -32,7 +30,9 @@ public interface TaskTransform {
 	 */
 	void setPreEntryProcessor(Function<OutputTag, ZipEntryProcessor> processor);
 
-	void setProcessOnly(Predicate<OutputTag> processOnly);
-
-
+	/**
+	 * This will fail if there are any un-processed {@link ProcessResult#POST}
+	 * @param processor This processor is fired after this task is processed
+	 */
+	void setFinalizingZipProcessor(Function<OutputTag, PostZipProcessor> processor);
 }

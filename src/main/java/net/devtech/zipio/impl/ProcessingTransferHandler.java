@@ -1,6 +1,5 @@
 package net.devtech.zipio.impl;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.List;
@@ -12,11 +11,13 @@ import net.devtech.zipio.VirtualZipEntry;
 import net.devtech.zipio.processors.entry.ZipEntryProcessor;
 import net.devtech.zipio.impl.entry.InMemoryZipEntryImpl;
 import net.devtech.zipio.impl.entry.RealZipEntry;
+import net.devtech.zipio.processors.zip.PostZipProcessor;
 
 public class ProcessingTransferHandler implements TransferHandler {
 	final TransferHandler handler;
 	final List<VirtualZipEntry> afterAll, postEntries;
 	final ZipEntryProcessor pre, per, post;
+	final PostZipProcessor postZip;
 	final boolean hasProcessPostProcessor;
 	boolean hasPost;
 
@@ -25,6 +26,7 @@ public class ProcessingTransferHandler implements TransferHandler {
 			ZipEntryProcessor per,
 			ZipEntryProcessor post,
 			ZipEntryProcessor pre,
+			PostZipProcessor postZip,
 			boolean hasPostProcessor) {
 		this.hasProcessPostProcessor = hasPostProcessor;
 		this.handler = handler;
@@ -33,6 +35,7 @@ public class ProcessingTransferHandler implements TransferHandler {
 		this.per = per;
 		this.post = post;
 		this.pre = pre;
+		this.postZip = postZip;
 	}
 
 	@Override
@@ -84,6 +87,9 @@ public class ProcessingTransferHandler implements TransferHandler {
 					}
 				}
 			}
+		}
+		if(this.postZip != null) {
+			this.postZip.apply(this.handler);
 		}
 		this.handler.close();
 	}

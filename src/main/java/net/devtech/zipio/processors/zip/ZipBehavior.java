@@ -12,5 +12,10 @@ public enum ZipBehavior {
 	/**
 	 * Process the zip as normal
 	 */
-	CONTINUE
+	CONTINUE,
+	/**
+	 * Like copy, but instead of using the input path, it uses the output path.
+	 * This is useful when that specific artifact was already processed earlier
+	 */
+	USE_OUTPUT
 }

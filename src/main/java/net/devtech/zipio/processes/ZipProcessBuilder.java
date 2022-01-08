@@ -28,6 +28,11 @@ public interface ZipProcessBuilder extends ZipProcess {
 
 	ZipTransform addZip(Path path, OutputTag output);
 
+	/**
+	 * Adds a listener that is fired after this process is executed. The ZipProcess is still executing in this stage, so ZipTags can be written to here
+	 */
+	void afterExecute(Runnable runnable);
+
 	default ZipTransform addZip(Path path, Path output) {
 		return this.addZip(path, new OutputTag(output));
 	}
@@ -60,9 +65,4 @@ public interface ZipProcessBuilder extends ZipProcess {
 	 *  if {@link ProcessResult#POST} is returned here, then the PostProcessor will be invoked with the given entry
 	 */
 	void setPostProcessor(ZipEntryProcessor handler);
-
-	/**
-	 * Adds a listener that is fired after this process is executed. The ZipProcess is still executing in this stage, so ZipTags can be written to here
-	 */
-	void afterExecute(Runnable runnable);
 }

@@ -1,6 +1,7 @@
 package net.devtech.zipio.stage;
 
 import java.nio.file.Path;
+import java.util.function.Function;
 
 import net.devtech.zipio.OutputTag;
 import net.devtech.zipio.processors.entry.ZipEntryProcessor;
@@ -24,5 +25,9 @@ public interface ZipTransform extends TaskTransform {
 
 	default void setPostZipProcessor(PostZipProcessor processor) {
 		this.setPostZipProcessor(p -> processor);
+	}
+
+	default void setFinalizingZipProcessor(PostZipProcessor processor) {
+		this.setFinalizingZipProcessor(p -> processor);
 	}
 }
